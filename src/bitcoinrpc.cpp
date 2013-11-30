@@ -2309,24 +2309,25 @@ Value getblocktemplate(const Array& params, bool fHelp)
             "See https://en.bitcoin.it/wiki/BIP_0022 for full specification.");
 
     const Object& oparam = params[0].get_obj();
-     std::string strMode;
-     {
-         const Value& modeval = find_value(oparam, "mode");
-         if (modeval.type() == str_type)
-             strMode = modeval.get_str();
-         else
-         if (find_value(oparam, "data").type() == null_type)
-             strMode = "template";
-         else
-             strMode = "submit";
-     }
- 
-      if (strMode == "template")
+    std::string strMode;
+    {
+        const Value& modeval = find_value(oparam, "mode");
+        if (modeval.type() == str_type)
+            strMode = modeval.get_str();
+        else
+        if (find_value(oparam, "data").type() == null_type)
+            strMode = "template";
+        else
+            strMode = "submit";
+    }
+
+    if (strMode == "template")
     {
         if (vNodes.empty())
-           throw JSONRPCError(-9, "BBQCoin is not connected!");
+            throw JSONRPCError(-9, "digitalcoin is not connected!");
+
         if (IsInitialBlockDownload())
-        throw JSONRPCError(-10, "BBQCoin is downloading blocks...");
+            throw JSONRPCError(-10, "digitalcoin is downloading blocks...");
 
         static CReserveKey reservekey(pwalletMain);
 
@@ -2409,7 +2410,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
             aMutable.push_back("transactions");
             aMutable.push_back("prevblock");
         }
-        
+
         Object result;
         result.push_back(Pair("version", pblock->nVersion));
         result.push_back(Pair("previousblockhash", pblock->hashPrevBlock.GetHex()));
@@ -2432,14 +2433,40 @@ Value getblocktemplate(const Array& params, bool fHelp)
     if (strMode == "submit")
     {
         // Parse parameters
-       CDataStream ssBlock(ParseHex(find_value(oparam, "data").get_str()), SER_NETWORK, PROTOCOL_VERSION);
+        CDataStream ssBlock(ParseHex(find_value(oparam, "data").get_str()), SER_NETWORK, PROTOCOL_VERSION);
         CBlock pblock;
         ssBlock >> pblock;
 
         bool fAccepted = ProcessBlock(NULL, &pblock);
+
         return fAccepted ? Value::null : "rejected";
     }
+
     throw JSONRPCError(-8, "Invalid mode");
+}
+Value submitblock(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "submitblock <hex data> [optional-params-obj]\n"
+            "[optional-params-obj] parameter is currently ignored.\n"
+            "Attempts to submit new block to network.\n"
+            "See https://en.bitcoin.it/wiki/BIP_0022 for full specification.");
+
+ vector<unsigned char> blockData(ParseHex(params[0].get_str()));
+    CDataStream ssBlock(blockData, SER_NETWORK, PROTOCOL_VERSION);
+    CBlock block;
+    try {
+        ssBlock >> block;
+    }
+    catch (std::exception &e) {
+        throw JSONRPCError(-22, "Block decode failed");
+}
+   bool fAccepted = ProcessBlock(NULL, &block);
+     if (!fAccepted)
+         throw JSONRPCError(-23, "Block rejected");
+ 
+     return true;
 }
 
 Value getrawmempool(const Array& params, bool fHelp)
@@ -2597,6 +2624,7 @@ static const CRPCCommand vRPCCommands[] =
     { "settxfee",               &settxfee,               false },
     { "setmininput",            &setmininput,            false },
     { "getblocktemplate",       &getblocktemplate,       true },
+    { "submitblock",            &submitblock,            false },
     { "listsinceblock",         &listsinceblock,         false },
     { "dumpprivkey",            &dumpprivkey,            false },
     { "importprivkey",          &importprivkey,          false },
